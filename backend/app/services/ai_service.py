@@ -68,8 +68,11 @@ class AIService:
     
     async def generate_chapter(self, story_data: Dict[str, Any], previous_choice: str = None) -> Dict[str, Any]:
         """生成章节内容"""
+        print(f"生成章节 - 故事ID: {story_data.get('title', 'Unknown')}, 章节: {story_data.get('current_chapter_number', 1)}")
+        
+        # 使用真实AI生成
         if not self.model:
-            # 如果没有配置AI，返回模拟数据
+            print("Gemini API未配置，使用模拟数据")
             return self._generate_mock_chapter(story_data, previous_choice)
         
         try:
@@ -122,7 +125,11 @@ class AIService:
     
     async def generate_choices(self, chapter_content: str, story_style: StoryStyle) -> List[str]:
         """生成选择选项"""
+        print(f"生成选择 - 风格: {story_style.value}")
+        
+        # 使用真实AI生成
         if not self.model:
+            print("Gemini API未配置，使用模拟数据")
             return self._generate_mock_choices(story_style)
         
         try:

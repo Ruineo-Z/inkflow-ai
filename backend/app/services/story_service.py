@@ -89,6 +89,8 @@ class StoryService:
         )
         
         self.db.add(chapter)
+        self.db.commit()  # 先提交章节以获取ID
+        self.db.refresh(chapter)
         
         # 生成选择选项
         choices_text = await ai_service.generate_choices(
@@ -172,6 +174,8 @@ class StoryService:
         )
         
         self.db.add(new_chapter)
+        self.db.commit()  # 先提交章节以获取ID
+        self.db.refresh(new_chapter)
         
         # 生成新的选择选项
         choices_text = await ai_service.generate_choices(
