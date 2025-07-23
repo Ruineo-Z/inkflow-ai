@@ -24,4 +24,4 @@ except Exception as e:
 echo "启动应用服务..."
 
 # 启动FastAPI应用
-exec python -m uvicorn app.main:app --host 0.0.0.0 --port 20
+exec python -m uvicorn app.main:app --host 0.0.0.0 --port 20001
