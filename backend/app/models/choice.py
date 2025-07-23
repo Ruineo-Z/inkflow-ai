@@ -30,7 +30,7 @@ class Choice(Base):
         return {
             "id": str(self.id),
             "chapter_id": str(self.chapter_id),
-            "choice_text": self.choice_text,
+            "text": self.choice_text,  # 前端期望的字段名是text
             "choice_type": self.choice_type.value,
             "is_selected": self.is_selected,
             "created_at": self.created_at.isoformat()

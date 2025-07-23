@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.api import stories_router, chapters_router
-from app.database import engine, Base
+from app.api import stories_router, chapters_router, auth_router
+from app.database import engine, Base, is_redis_connected, create_tables
 
 # 创建数据库表
-Base.metadata.create_all(bind=engine)
+create_tables()
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -24,6 +24,7 @@ app.add_middleware(
 )
 
 # 注册路由
+app.include_router(auth_router, prefix=settings.api_prefix)
 app.include_router(stories_router, prefix=settings.api_prefix)
 app.include_router(chapters_router, prefix=settings.api_prefix)
 
@@ -39,9 +40,15 @@ async def root():
 @app.get("/health")
 async def health_check():
     """健康检查"""
+    redis_status = is_redis_connected()
+    
     return {
-        "status": "healthy",
-        "version": settings.app_version
+        "status": "healthy" if redis_status else "degraded",
+        "version": settings.app_version,
+        "services": {
+            "database": "connected",
+            "redis": "connected" if redis_status else "disconnected"
+        }
     }
 
 if __name__ == "__main__":

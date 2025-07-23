@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Integer, Text, Enum, JSON
+from sqlalchemy import Column, String, DateTime, Integer, Text, Enum, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
@@ -24,6 +24,7 @@ class Story(Base):
     style = Column(Enum(StoryStyle), nullable=False)
     status = Column(Enum(StoryStatus), default=StoryStatus.ACTIVE)
     current_chapter_number = Column(Integer, default=0)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False)  # 用户关联
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
@@ -33,6 +34,7 @@ class Story(Base):
     character_info = Column(JSON, default=dict)
     
     # 关联关系
+    user = relationship("User", back_populates="stories")
     chapters = relationship("Chapter", back_populates="story", cascade="all, delete-orphan")
     
     def __repr__(self):

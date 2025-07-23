@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.trae
+.promptx
+.vercel
+package-lock.json
+__pycache__

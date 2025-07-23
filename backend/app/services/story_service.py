@@ -8,7 +8,7 @@ class StoryService:
     def __init__(self, db: Session):
         self.db = db
     
-    def create_story(self, style: StoryStyle, title: str = None) -> Story:
+    def create_story(self, style: StoryStyle, title: str = None, user_id: str = None) -> Story:
         """创建新故事"""
         if not title:
             style_titles = {
@@ -22,7 +22,8 @@ class StoryService:
             title=title,
             style=style,
             status=StoryStatus.ACTIVE,
-            current_chapter_number=0
+            current_chapter_number=0,
+            user_id=user_id
         )
         
         self.db.add(story)
@@ -34,6 +35,16 @@ class StoryService:
     def get_story(self, story_id: uuid.UUID) -> Optional[Story]:
         """获取故事详情"""
         return self.db.query(Story).filter(Story.id == story_id).first()
+    
+    def get_all_stories(self) -> List[Story]:
+        """获取所有故事列表"""
+        return self.db.query(Story).order_by(Story.created_at.desc()).all()
+    
+    def get_user_stories(self, user_id: str) -> List[Story]:
+        """获取指定用户的故事列表"""
+        return self.db.query(Story).filter(
+            Story.user_id == user_id
+        ).order_by(Story.created_at.desc()).all()
     
     def get_story_chapters(self, story_id: uuid.UUID) -> List[Chapter]:
         """获取故事的所有章节"""
@@ -211,3 +222,137 @@ class StoryService:
         return self.db.query(Choice).filter(
             Choice.chapter_id == chapter_id
         ).all()
+    
+    def delete_story(self, story_id: uuid.UUID) -> bool:
+        """删除故事及其所有相关数据"""
+        try:
+            # 获取故事
+            story = self.get_story(story_id)
+            if not story:
+                raise ValueError("故事不存在")
+            
+            # 由于模型中设置了cascade="all, delete-orphan"
+            # 删除故事时会自动级联删除所有相关的章节和选择
+            self.db.delete(story)
+            self.db.commit()
+            
+            return True
+        except Exception as e:
+            self.db.rollback()
+            raise e
+    
+    async def generate_next_chapter_stream(self, story_id: uuid.UUID, selected_choice_id: uuid.UUID = None, custom_choice: str = None):
+        """基于用户选择流式生成下一章"""
+        try:
+            story = self.get_story(story_id)
+            if not story:
+                yield {"type": "error", "message": "故事不存在"}
+                return
+            
+            # 处理用户选择
+            choice_text = None
+            if custom_choice:
+                # 用户自定义选择
+                choice_text = custom_choice
+                # 创建自定义选择记录
+                last_chapter = self.db.query(Chapter).filter(
+                    Chapter.story_id == story_id
+                ).order_by(Chapter.chapter_number.desc()).first()
+                
+                if last_chapter:
+                    custom_choice_obj = Choice(
+                        chapter_id=last_chapter.id,
+                        choice_text=custom_choice,
+                        choice_type=ChoiceType.USER_CUSTOM,
+                        is_selected=True
+                    )
+                    self.db.add(custom_choice_obj)
+            else:
+                # AI生成的选择
+                if selected_choice_id:
+                    selected_choice = self.db.query(Choice).filter(
+                        Choice.id == selected_choice_id
+                    ).first()
+                    
+                    if not selected_choice:
+                        yield {"type": "error", "message": "选择不存在"}
+                        return
+                    
+                    # 标记选择为已选中
+                    selected_choice.is_selected = True
+                    choice_text = selected_choice.choice_text
+            
+            # 构建故事数据
+            story_data = {
+                "style": story.style.value,
+                "title": story.title,
+                "current_chapter_number": story.current_chapter_number + 1,
+                "chapter_summaries": story.chapter_summaries or [],
+                "character_info": story.character_info or {}
+            }
+            
+            # 流式生成新章节
+            accumulated_content = ""
+            chapter_title = ""
+            
+            async for chunk in ai_service.generate_chapter_stream(story_data, choice_text):
+                if chunk["type"] == "title":
+                    chapter_title = chunk["content"]
+                    yield chunk
+                elif chunk["type"] == "content":
+                    accumulated_content += chunk["content"]
+                    yield chunk
+                elif chunk["type"] == "complete":
+                    # 创建章节记录
+                    new_chapter = Chapter(
+                        story_id=story.id,
+                        chapter_number=story.current_chapter_number + 1,
+                        title=chunk["title"],
+                        content=chunk["content"],
+                        summary=chunk["content"][:200] + "..."
+                    )
+                    
+                    self.db.add(new_chapter)
+                    self.db.commit()  # 先提交章节以获取ID
+                    self.db.refresh(new_chapter)
+                    
+                    # 生成新的选择选项
+                    try:
+                        choices_text = await ai_service.generate_choices(
+                            chunk["content"], 
+                            story.style
+                        )
+                        
+                        for choice_text in choices_text:
+                            choice = Choice(
+                                chapter_id=new_chapter.id,
+                                choice_text=choice_text,
+                                choice_type=ChoiceType.AI_GENERATED
+                            )
+                            self.db.add(choice)
+                        
+                        # 更新故事状态
+                        story.current_chapter_number += 1
+                        summaries = story.chapter_summaries or []
+                        summaries.append(new_chapter.summary)
+                        story.chapter_summaries = summaries
+                        
+                        self.db.commit()
+                        self.db.refresh(new_chapter)
+                        
+                        # 发送完成信号，包含章节信息和选择选项
+                        choices = self.get_chapter_choices(new_chapter.id)
+                        yield {
+                            "type": "complete",
+                            "chapter": new_chapter.to_dict(),
+                            "choices": [choice.to_dict() for choice in choices]
+                        }
+                        
+                    except Exception as e:
+                        yield {"type": "error", "message": f"生成选择选项失败: {str(e)}"}
+                elif chunk["type"] == "error":
+                    yield chunk
+                    
+        except Exception as e:
+            self.db.rollback()
+            yield {"type": "error", "message": f"生成章节失败: {str(e)}"}

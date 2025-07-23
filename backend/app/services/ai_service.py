@@ -70,10 +70,9 @@ class AIService:
         """生成章节内容"""
         print(f"生成章节 - 故事ID: {story_data.get('title', 'Unknown')}, 章节: {story_data.get('current_chapter_number', 1)}")
         
-        # 使用真实AI生成
+        # 检查Gemini API配置
         if not self.model:
-            print("Gemini API未配置，使用模拟数据")
-            return self._generate_mock_chapter(story_data, previous_choice)
+            raise Exception("Gemini API未配置或配置错误，无法生成内容")
         
         try:
             style = StoryStyle(story_data['style'])
@@ -98,8 +97,15 @@ class AIService:
             
             response = await self.model.generate_content_async(prompt)
             
-            # 解析AI响应
-            content = response.text
+            # 解析AI响应 - 使用正确的访问方式
+            if response.candidates and len(response.candidates) > 0:
+                candidate = response.candidates[0]
+                if candidate.content and candidate.content.parts:
+                    content = "".join([part.text for part in candidate.content.parts if hasattr(part, 'text')])
+                else:
+                    content = ""
+            else:
+                content = ""
             
             # 尝试提取JSON
             json_match = re.search(r'\{[^{}]*"title"[^{}]*"content"[^{}]*\}', content, re.DOTALL)
@@ -121,16 +127,81 @@ class AIService:
             
         except Exception as e:
             print(f"AI生成章节失败: {e}")
-            return self._generate_mock_chapter(story_data, previous_choice)
+            raise Exception(f"Gemini API调用失败: {str(e)}")
+    
+    async def generate_chapter_stream(self, story_data: Dict[str, Any], previous_choice: str = None):
+        """流式生成章节内容"""
+        print(f"流式生成章节 - 故事ID: {story_data.get('title', 'Unknown')}, 章节: {story_data.get('current_chapter_number', 1)}")
+        
+        # 检查Gemini API配置
+        if not self.model:
+            raise Exception("Gemini API未配置或配置错误，无法生成内容")
+        
+        try:
+            style = StoryStyle(story_data['style'])
+            style_prompt = self._get_style_prompt(style)
+            context = self._build_context(story_data, previous_choice)
+            
+            prompt = f"""{style_prompt}
+
+{context}
+
+请基于以上信息，创作下一章节的内容。要求：
+1. 章节内容要连贯自然，与之前的情节呼应
+2. 如果有用户选择，要体现选择的影响
+3. 在章节结尾设置适当的悬念
+4. 直接输出章节内容，不需要JSON格式
+5. 章节标题单独一行，然后是章节内容"""
+            
+            # 使用流式生成
+            response = self.model.generate_content(prompt, stream=True)
+            
+            accumulated_content = ""
+            title = f"第{story_data.get('current_chapter_number', 1)}章"
+            title_sent = False
+            
+            for chunk in response:
+                if chunk.candidates and len(chunk.candidates) > 0:
+                    candidate = chunk.candidates[0]
+                    if candidate.content and candidate.content.parts:
+                        chunk_text = "".join([part.text for part in candidate.content.parts if hasattr(part, 'text')])
+                        accumulated_content += chunk_text
+                        
+                        # 首次发送标题
+                        if not title_sent:
+                            yield {
+                                "type": "title",
+                                "content": title
+                            }
+                            title_sent = True
+                        
+                        # 发送内容块
+                        yield {
+                            "type": "content",
+                            "content": chunk_text
+                        }
+            
+            # 发送完成信号
+            yield {
+                "type": "complete",
+                "title": title,
+                "content": accumulated_content.strip()
+            }
+            
+        except Exception as e:
+            print(f"AI流式生成章节失败: {e}")
+            yield {
+                "type": "error",
+                "message": f"Gemini API调用失败: {str(e)}"
+            }
     
     async def generate_choices(self, chapter_content: str, story_style: StoryStyle) -> List[str]:
         """生成选择选项"""
         print(f"生成选择 - 风格: {story_style.value}")
         
-        # 使用真实AI生成
+        # 检查Gemini API配置
         if not self.model:
-            print("Gemini API未配置，使用模拟数据")
-            return self._generate_mock_choices(story_style)
+            raise Exception("Gemini API未配置或配置错误，无法生成选择")
         
         try:
             prompt = f"""
@@ -150,7 +221,16 @@ class AIService:
 """
             
             response = await self.model.generate_content_async(prompt)
-            content = response.text
+            
+            # 解析AI响应 - 使用正确的访问方式
+            if response.candidates and len(response.candidates) > 0:
+                candidate = response.candidates[0]
+                if candidate.content and candidate.content.parts:
+                    content = "".join([part.text for part in candidate.content.parts if hasattr(part, 'text')])
+                else:
+                    content = ""
+            else:
+                content = ""
             
             # 尝试解析JSON数组
             json_match = re.search(r'\[[^\[\]]*\]', content)
@@ -162,12 +242,12 @@ class AIService:
                 except json.JSONDecodeError:
                     pass
             
-            # 如果解析失败，返回模拟选择
-            return self._generate_mock_choices(story_style)
+            # 如果解析失败，抛出错误
+            raise Exception("Gemini API返回格式解析失败")
             
         except Exception as e:
             print(f"AI生成选择失败: {e}")
-            return self._generate_mock_choices(story_style)
+            raise Exception(f"Gemini API调用失败: {str(e)}")
     
     def _generate_mock_chapter(self, story_data: Dict[str, Any], previous_choice: str = None) -> Dict[str, Any]:
         """生成模拟章节内容（用于测试）"""

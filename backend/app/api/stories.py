@@ -4,8 +4,9 @@ from typing import List, Dict, Any
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.models import StoryStyle
+from app.models import StoryStyle, User
 from app.services import StoryService
+from .auth import get_current_user
 
 router = APIRouter(prefix="/stories", tags=["stories"])
 
@@ -24,9 +25,39 @@ class ChapterResponse(BaseModel):
     data: Dict[str, Any]
     message: str = ""
 
+@router.get("/")
+async def get_all_stories(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取所有故事列表"""
+    try:
+        story_service = StoryService(db)
+        stories = story_service.get_user_stories(current_user.id)
+        
+        # 为每个故事添加章节数量
+        stories_data = []
+        for story in stories:
+            story_dict = story.to_dict()
+            # 获取章节数量
+            chapters = story_service.get_story_chapters(story.id)
+            story_dict["chapter_count"] = len(chapters)
+            stories_data.append(story_dict)
+        
+        return {
+            "success": True,
+            "data": stories_data
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取故事列表失败: {str(e)}"
+        )
+
 @router.post("/", response_model=StoryResponse)
 async def create_story(
     request: CreateStoryRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """创建新故事"""
@@ -34,7 +65,8 @@ async def create_story(
         story_service = StoryService(db)
         story = story_service.create_story(
             style=request.style,
-            title=request.title
+            title=request.title,
+            user_id=current_user.id
         )
         
         return StoryResponse(
@@ -51,6 +83,7 @@ async def create_story(
 @router.get("/{story_id}", response_model=StoryResponse)
 async def get_story(
     story_id: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取故事详情"""
@@ -62,6 +95,13 @@ async def get_story(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="故事不存在"
+            )
+        
+        # 检查用户权限
+        if story.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无权访问此故事"
             )
         
         return StoryResponse(
@@ -79,6 +119,7 @@ async def get_story(
 @router.get("/{story_id}/chapters")
 async def get_story_chapters(
     story_id: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取故事章节列表"""
@@ -90,6 +131,13 @@ async def get_story_chapters(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="故事不存在"
+            )
+        
+        # 检查用户权限
+        if story.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无权访问此故事"
             )
         
         chapters = story_service.get_story_chapters(story_id)
@@ -112,6 +160,7 @@ async def get_story_chapters(
 @router.post("/{story_id}/chapters", response_model=ChapterResponse)
 async def generate_chapter(
     story_id: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """生成新章节"""
@@ -123,6 +172,13 @@ async def generate_chapter(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="故事不存在"
+            )
+        
+        # 检查用户权限
+        if story.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无权访问此故事"
             )
         
         # 如果是第一章，生成首章
@@ -150,6 +206,7 @@ async def generate_chapter(
 @router.get("/{story_id}/choices")
 async def get_story_choices_history(
     story_id: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取故事选择历史"""
@@ -161,6 +218,13 @@ async def get_story_choices_history(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="故事不存在"
+            )
+        
+        # 检查用户权限
+        if story.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无权访问此故事"
             )
         
         choices_history = story_service.get_story_choices_history(story_id)
@@ -178,4 +242,49 @@ async def get_story_choices_history(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取选择历史失败: {str(e)}"
+        )
+
+@router.delete("/{story_id}", response_model=StoryResponse)
+async def delete_story(
+    story_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """删除故事及其所有相关数据"""
+    try:
+        story_service = StoryService(db)
+        story = story_service.get_story(story_id)
+        
+        if not story:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="故事不存在"
+            )
+        
+        # 检查用户权限
+        if story.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无权访问此故事"
+            )
+        
+        # 删除故事
+        story_service.delete_story(story_id)
+        
+        return StoryResponse(
+            success=True,
+            data={"story_id": str(story_id)},
+            message="故事删除成功"
+        )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"删除故事失败: {str(e)}"
         )

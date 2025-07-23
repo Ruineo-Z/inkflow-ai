@@ -21,7 +21,7 @@ class Settings(BaseModel):
     
     # API配置
     api_prefix: str = "/api"
-    cors_origins: list = ["http://localhost:3000", "http://localhost:5173"]
+    cors_origins: list = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"]
     
     # 安全配置
     secret_key: str = "your-secret-key-here"
@@ -33,6 +33,9 @@ class Settings(BaseModel):
     min_chapter_length: int = 2000
     choices_count: int = 3
     
+    # Redis配置
+    redis_url: str = "redis://localhost:6379/0"
+    
     def __init__(self, **kwargs):
         # 从环境变量加载配置
         env_values = {
@@ -43,13 +46,14 @@ class Settings(BaseModel):
             'gemini_api_key': os.getenv('GEMINI_API_KEY'),
             'gemini_model': os.getenv('GEMINI_MODEL', 'gemini-pro'),
             'api_prefix': os.getenv('API_PREFIX', '/api'),
-            'cors_origins': eval(os.getenv('CORS_ORIGINS', '["*"]')),
+            'cors_origins': [origin.strip() for origin in os.getenv('CORS_ORIGINS', '*').split(',') if origin.strip()],
             'secret_key': os.getenv('SECRET_KEY', 'dev-secret-key'),
             'algorithm': os.getenv('ALGORITHM', 'HS256'),
             'access_token_expire_minutes': int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES', '30')),
             'max_chapter_length': int(os.getenv('MAX_CHAPTER_LENGTH', '3000')),
             'min_chapter_length': int(os.getenv('MIN_CHAPTER_LENGTH', '2000')),
-            'choices_count': int(os.getenv('CHOICES_COUNT', '3'))
+            'choices_count': int(os.getenv('CHOICES_COUNT', '3')),
+            'redis_url': os.getenv('REDIS_URL', 'redis://localhost:6379/0')
         }
         env_values.update(kwargs)
         super().__init__(**env_values)

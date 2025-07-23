@@ -1,9 +1,11 @@
 from .story import Story, StoryStyle, StoryStatus
 from .chapter import Chapter
 from .choice import Choice, ChoiceType
+from .user import User
 
 __all__ = [
     "Story", "StoryStyle", "StoryStatus",
     "Chapter",
-    "Choice", "ChoiceType"
+    "Choice", "ChoiceType",
+    "User"
 ]

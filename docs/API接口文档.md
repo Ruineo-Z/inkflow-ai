@@ -51,6 +51,13 @@
   - `story_id` (string, 必需)
 - **响应**: 选择历史列表
 
+#### 删除故事
+- **端点**: `DELETE /api/stories/{story_id}`
+- **描述**: 删除故事及其所有相关数据（章节、选择等）
+- **路径参数**: 
+  - `story_id` (string, 必需)
+- **响应**: StoryResponse
+
 ### 2. 章节管理
 
 #### 获取章节详情
@@ -180,6 +187,11 @@ curl -X POST "http://localhost:8000/api/stories/{story_id}/chapters"
 curl -X POST "http://localhost:8000/api/chapters/{chapter_id}/choices" \
   -H "Content-Type: application/json" \
   -d '{"choice_id": "choice_1"}'
+```
+
+### 删除故事
+```bash
+curl -X DELETE "http://localhost:8000/api/stories/{story_id}"
 ```
 
 ## 错误处理

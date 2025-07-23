@@ -21,7 +21,7 @@ export default function ApiDocs() {
   "style": "修仙" | "武侠" | "科技",
   "title": "string" (可选)
 }`,
-      example: `curl -X POST "http://localhost:8000/api/stories/" \\
+      example: `curl -X POST "http://localhost:20001/api/stories/" \\
   -H "Content-Type: application/json" \\
   -d '{"style": "修仙", "title": "我的修仙之路"}'`
     },
@@ -30,28 +30,28 @@ export default function ApiDocs() {
       path: '/api/stories/{story_id}',
       description: '获取故事详情',
       requestBody: null,
-      example: `curl "http://localhost:8000/api/stories/{story_id}"`
+      example: `curl "http://localhost:20001/api/stories/{story_id}"`
     },
     {
       method: 'GET',
       path: '/api/stories/{story_id}/chapters',
       description: '获取故事章节列表',
       requestBody: null,
-      example: `curl "http://localhost:8000/api/stories/{story_id}/chapters"`
+      example: `curl "http://localhost:20001/api/stories/{story_id}/chapters"`
     },
     {
       method: 'POST',
       path: '/api/stories/{story_id}/chapters',
       description: '生成新章节',
       requestBody: null,
-      example: `curl -X POST "http://localhost:8000/api/stories/{story_id}/chapters"`
+      example: `curl -X POST "http://localhost:20001/api/stories/{story_id}/chapters"`
     },
     {
       method: 'GET',
       path: '/api/chapters/{chapter_id}',
       description: '获取章节详情',
       requestBody: null,
-      example: `curl "http://localhost:8000/api/chapters/{chapter_id}"`
+      example: `curl "http://localhost:20001/api/chapters/{chapter_id}"`
     },
     {
       method: 'POST',
@@ -61,7 +61,7 @@ export default function ApiDocs() {
   "choice_id": "string" | null,
   "custom_choice": "string" | null
 }`,
-      example: `curl -X POST "http://localhost:8000/api/chapters/{chapter_id}/choices" \\
+      example: `curl -X POST "http://localhost:20001/api/chapters/{chapter_id}/choices" \\
   -H "Content-Type: application/json" \\
   -d '{"choice_id": "choice_1"}'`
     }
@@ -103,7 +103,7 @@ export default function ApiDocs() {
           </div>
           
           <a
-            href="http://localhost:8000/docs"
+            href="http://localhost:20001/docs"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all"
@@ -123,7 +123,7 @@ export default function ApiDocs() {
                 <ul className="space-y-2 text-gray-600">
                   <li><strong>API 标题:</strong> AI Interactive Novel API</li>
                   <li><strong>版本:</strong> 1.0.0</li>
-                  <li><strong>基础 URL:</strong> http://localhost:8000</li>
+                  <li><strong>基础 URL:</strong> http://localhost:20001</li>
                   <li><strong>协议:</strong> HTTP/HTTPS</li>
                 </ul>
               </div>
@@ -285,7 +285,7 @@ export default function ApiDocs() {
                 <ExternalLink className="w-5 h-5 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
                 <div>
                   <strong className="text-gray-800">交互式文档：</strong>
-                  <p>访问 <a href="http://localhost:8000/docs" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">http://localhost:8000/docs</a> 查看 Swagger UI 并直接测试 API</p>
+                  <p>访问 <a href="http://localhost:20001/docs" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">http://localhost:20001/docs</a> 查看 Swagger UI 并直接测试 API</p>
                 </div>
               </div>
             </div>
