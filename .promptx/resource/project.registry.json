@@ -4,14 +4,77 @@
   "metadata": {
     "version": "2.0.0",
     "description": "project 级资源注册表",
-    "createdAt": "2025-07-22T01:41:21.791Z",
-    "updatedAt": "2025-07-22T01:41:21.791Z",
-    "resourceCount": 0
+    "createdAt": "2025-07-24T08:30:56.816Z",
+    "updatedAt": "2025-07-24T08:30:56.820Z",
+    "resourceCount": 4
   },
-  "resources": [],
+  "resources": [
+    {
+      "id": "python-ai-development",
+      "source": "project",
+      "protocol": "execution",
+      "name": "Python Ai Development 执行模式",
+      "description": "执行模式，定义具体的行为模式",
+      "reference": "@project://.promptx/resource/role/python-ai-expert/execution/python-ai-development.execution.md",
+      "metadata": {
+        "createdAt": "2025-07-24T08:30:56.818Z",
+        "updatedAt": "2025-07-24T08:30:56.818Z",
+        "scannedAt": "2025-07-24T08:30:56.818Z",
+        "path": "role/python-ai-expert/execution/python-ai-development.execution.md"
+      }
+    },
+    {
+      "id": "python-ai-expert",
+      "source": "project",
+      "protocol": "role",
+      "name": "Python Ai Expert 角色",
+      "description": "专业角色，提供特定领域的专业能力",
+      "reference": "@project://.promptx/resource/role/python-ai-expert/python-ai-expert.role.md",
+      "metadata": {
+        "createdAt": "2025-07-24T08:30:56.819Z",
+        "updatedAt": "2025-07-24T08:30:56.819Z",
+        "scannedAt": "2025-07-24T08:30:56.819Z",
+        "path": "role/python-ai-expert/python-ai-expert.role.md"
+      }
+    },
+    {
+      "id": "ai-first-judgment",
+      "source": "project",
+      "protocol": "thought",
+      "name": "Ai First Judgment 思维模式",
+      "description": "思维模式，指导AI的思考方式",
+      "reference": "@project://.promptx/resource/role/python-ai-expert/thought/ai-first-judgment.thought.md",
+      "metadata": {
+        "createdAt": "2025-07-24T08:30:56.819Z",
+        "updatedAt": "2025-07-24T08:30:56.819Z",
+        "scannedAt": "2025-07-24T08:30:56.819Z",
+        "path": "role/python-ai-expert/thought/ai-first-judgment.thought.md"
+      }
+    },
+    {
+      "id": "wechat-miniprogram-expert",
+      "source": "project",
+      "protocol": "role",
+      "name": "Wechat Miniprogram Expert 角色",
+      "description": "专业角色，提供特定领域的专业能力",
+      "reference": "@project://.promptx/resource/role/wechat-miniprogram-expert/wechat-miniprogram-expert.role.md",
+      "metadata": {
+        "createdAt": "2025-07-24T08:30:56.820Z",
+        "updatedAt": "2025-07-24T08:30:56.820Z",
+        "scannedAt": "2025-07-24T08:30:56.820Z",
+        "path": "role/wechat-miniprogram-expert/wechat-miniprogram-expert.role.md"
+      }
+    }
+  ],
   "stats": {
-    "totalResources": 0,
-    "byProtocol": {},
-    "bySource": {}
+    "totalResources": 4,
+    "byProtocol": {
+      "execution": 1,
+      "role": 2,
+      "thought": 1
+    },
+    "bySource": {
+      "project": 4
+    }
   }
 }
