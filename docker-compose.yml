@@ -4,7 +4,7 @@ services:
   # 后端API服务
   backend:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
     container_name: inkflow-backend
     env_file:
@@ -18,9 +18,7 @@ services:
       - inkflow-network
       - database-network
     volumes:
-      - ./backend:/app
-
-
+      - .:/app
 
 networks:
   inkflow-network:
