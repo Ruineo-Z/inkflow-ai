@@ -5,10 +5,15 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from app.models import StoryStyle, User
+from app.models.responses import (
+    SuccessResponse, ErrorResponse, StoriesListResponse,
+    StoryDetail, StoryResponse as StoryResponseModel, STANDARD_RESPONSES,
+    ChaptersListResponse, ChapterDetail, StoryChoicesHistoryResponse
+)
 from app.services import StoryService, WorldViewService
 from .auth import get_current_user
 
-router = APIRouter(prefix="/stories", tags=["stories"])
+router = APIRouter(prefix="/stories", tags=["故事"])
 
 # Pydantic模型
 class CreateStoryRequest(BaseModel):
@@ -21,50 +26,61 @@ class StoryResponse(BaseModel):
     data: Dict[str, Any]
     message: str = ""
 
-class ChapterResponse(BaseModel):
-    success: bool
-    data: Dict[str, Any]
-    message: str = ""
 
-@router.get("/")
+
+@router.get("/",
+           response_model=StoriesListResponse,
+           responses=STANDARD_RESPONSES)
 async def get_all_stories(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-):
+) -> StoriesListResponse:
     """获取所有故事列表"""
     try:
         story_service = StoryService(db)
         stories = story_service.get_user_stories(current_user.id)
-        
-        # 为每个故事添加章节数量
-        stories_data = []
+
+        # 转换为详细故事模型
+        story_details = []
         for story in stories:
-            story_dict = story.to_dict()
             # 获取章节数量
             chapters = story_service.get_story_chapters(story.id)
-            story_dict["chapter_count"] = len(chapters)
-            stories_data.append(story_dict)
-        
-        return {
-            "success": True,
-            "data": stories_data
-        }
+            story_detail = StoryDetail(
+                id=story.id,
+                title=story.title,
+                genre=story.style.value if story.style else "",  # 使用style作为genre
+                style=story.style.value if story.style else "",
+                description=getattr(story, 'description', ''),
+                status=story.status.value if story.status else "active",
+                current_chapter_number=story.current_chapter_number,
+                chapter_count=len(chapters),
+                created_at=story.created_at,
+                updated_at=story.updated_at
+            )
+            story_details.append(story_detail)
+
+        return StoriesListResponse.create(
+            stories=story_details,
+            total=len(story_details)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取故事列表失败: {str(e)}"
         )
 
-@router.post("/", response_model=StoryResponse)
+@router.post("/",
+            response_model=SuccessResponse,
+            responses=STANDARD_RESPONSES)
 async def create_story(
     request: CreateStoryRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-):
+) -> SuccessResponse:
     """创建新故事并生成世界观框架"""
     try:
         story_service = StoryService(db)
-        
+
         # 如果提供了主题，使用新的世界观生成流程
         if request.theme:
             story = await story_service.create_story_with_worldview(
@@ -80,9 +96,8 @@ async def create_story(
                 title=request.title,
                 user_id=current_user.id
             )
-        
-        return StoryResponse(
-            success=True,
+
+        return SuccessResponse(
             data=story.to_dict(),
             message="故事创建成功" + ("，世界观已生成" if request.theme else "")
         )
@@ -128,39 +143,52 @@ async def get_story(
             detail=f"获取故事失败: {str(e)}"
         )
 
-@router.get("/{story_id}/chapters")
+@router.get("/{story_id}/chapters",
+           response_model=ChaptersListResponse,
+           responses=STANDARD_RESPONSES)
 async def get_story_chapters(
     story_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-):
+) -> ChaptersListResponse:
     """获取故事章节列表"""
     try:
         story_service = StoryService(db)
         story = story_service.get_story(story_id)
-        
+
         if not story:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="故事不存在"
             )
-        
+
         # 检查用户权限
         if story.user_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="无权访问此故事"
             )
-        
+
         chapters = story_service.get_story_chapters(story_id)
-        
-        return {
-            "success": True,
-            "data": {
-                "story_id": str(story_id),
-                "chapters": [chapter.to_dict() for chapter in chapters]
-            }
-        }
+
+        # 转换为ChapterDetail模型
+        chapter_details = []
+        for chapter in chapters:
+            chapter_detail = ChapterDetail(
+                id=str(chapter.id),
+                story_id=str(chapter.story_id),
+                chapter_number=chapter.chapter_number,
+                title=chapter.title,
+                content=chapter.content,
+                summary=getattr(chapter, 'summary', None),
+                created_at=chapter.created_at
+            )
+            chapter_details.append(chapter_detail)
+
+        return ChaptersListResponse.create(
+            story_id=str(story_id),
+            chapters=chapter_details
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -169,51 +197,6 @@ async def get_story_chapters(
             detail=f"获取章节列表失败: {str(e)}"
         )
 
-@router.post("/{story_id}/chapters", response_model=ChapterResponse)
-async def generate_chapter(
-    story_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """生成新章节"""
-    try:
-        story_service = StoryService(db)
-        story = story_service.get_story(story_id)
-
-        if not story:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="故事不存在"
-            )
-
-        # 检查用户权限
-        if story.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="无权访问此故事"
-            )
-
-        # 如果是第一章，生成首章
-        if story.current_chapter_number == 0:
-            chapter = await story_service.generate_first_chapter(story_id)
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="请先做出选择再生成下一章"
-            )
-
-        return ChapterResponse(
-            success=True,
-            data=chapter.to_dict(),
-            message="章节生成成功"
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"生成章节失败: {str(e)}"
-        )
 
 @router.post("/{story_id}/chapters/stream")
 async def generate_chapter_stream(
@@ -267,39 +250,38 @@ async def generate_chapter_stream(
         }
     )
 
-@router.get("/{story_id}/choices")
+@router.get("/{story_id}/choices",
+           response_model=StoryChoicesHistoryResponse,
+           responses=STANDARD_RESPONSES)
 async def get_story_choices_history(
     story_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-):
+) -> StoryChoicesHistoryResponse:
     """获取故事选择历史"""
     try:
         story_service = StoryService(db)
         story = story_service.get_story(story_id)
-        
+
         if not story:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="故事不存在"
             )
-        
+
         # 检查用户权限
         if story.user_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="无权访问此故事"
             )
-        
+
         choices_history = story_service.get_story_choices_history(story_id)
-        
-        return {
-            "success": True,
-            "data": {
-                "story_id": str(story_id),
-                "choices_history": choices_history
-            }
-        }
+
+        return StoryChoicesHistoryResponse.create(
+            story_id=str(story_id),
+            choices_history=choices_history
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -415,35 +397,3 @@ async def create_worldview(
             detail=f"创建世界观失败: {str(e)}"
         )
 
-@router.post("/{story_id}/worldview/regenerate")
-async def regenerate_worldview(
-    story_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """重新生成故事的世界观框架"""
-    try:
-        # 验证故事存在且属于当前用户
-        story_service = StoryService(db)
-        story = story_service.get_story(story_id)
-        if not story or story.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="故事不存在或无权限访问"
-            )
-
-        worldview_service = WorldViewService(db)
-        worldview = await worldview_service.regenerate_worldview(
-            story_id=story_id
-        )
-
-        return {
-            "success": True,
-            "data": worldview.to_dict(),
-            "message": "世界观重新生成成功"
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"重新生成世界观失败: {str(e)}"
-        )

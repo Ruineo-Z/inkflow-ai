@@ -24,22 +24,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 复制应用代码
 COPY . .
 
-# 创建启动脚本
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-echo "等待数据库服务启动..."\n\
-while ! nc -z postgres-server 5432; do\n\
-  sleep 1\n\
-done\n\
-echo "数据库已就绪，开始初始化..."\n\
-\n\
-# 运行数据库迁移\n\
-python -c "from app.database import create_tables; create_tables()" || echo "数据库初始化完成"\n\
-\n\
-echo "启动应用服务..."\n\
-exec uvicorn main:app --host 0.0.0.0 --port 20001\n\
-' > /start.sh && chmod +x /start.sh
+# 复制启动脚本
+COPY docker-entrypoint.sh /start.sh
+RUN chmod +x /start.sh
 
 # 暴露端口
 EXPOSE 20001

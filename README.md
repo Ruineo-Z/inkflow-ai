@@ -9,8 +9,9 @@ InkFlow AI 是一个AI驱动的交互式小说平台，用户可以创建和体�
 ## 技术栈
 
 - **框架**: FastAPI
-- **数据库**: 外部数据库（通过URL配置）
-- **缓存**: 外部Redis（可选，通过URL配置）
+- **包管理**: uv (现代Python包管理器)
+- **数据库**: PostgreSQL
+- **缓存**: Redis (可选)
 - **AI模型**: Google Gemini
 - **认证**: JWT
 - **容器化**: Docker & Docker Compose
@@ -36,45 +37,56 @@ backend/
 
 ### 环境要求
 
-- Python 3.9+
-- Docker & Docker Compose
-- 外部数据库URL（PostgreSQL/MySQL等）
-- 外部Redis URL（可选）
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) (推荐的Python包管理器)
+- Docker & Docker Compose (可选)
+- PostgreSQL数据库
+- Redis缓存 (可选)
 
-### 使用Docker运行
+### 使用uv本地开发（推荐）
 
-1. 克隆项目
+1. 安装uv
+```bash
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+2. 克隆项目
 ```bash
 git clone <repository-url>
 cd inkflow-ai
 ```
 
-2. 配置环境变量
-
-**Docker部署（推荐）**：
+3. 安装依赖
 ```bash
-# 复制Docker环境变量模板
+uv sync
+```
+
+4. 配置环境变量
+```bash
 cp .env.example .env
 # 编辑 .env 文件，设置数据库URL、API密钥等
 ```
 
-**本地开发**：
+5. 启动开发服务器
 ```bash
-# 复制本地开发环境变量模板
-cp backend/.env.example backend/.env
-# 编辑 backend/.env 文件，设置本地数据库等配置
+# 使用Makefile（推荐）
+make dev
+
+# 或直接使用uv
+uv run uvicorn main:app --host 0.0.0.0 --port 20001 --reload
 ```
 
-3. 启动服务
-```bash
-docker-compose up -d
-```
+### 使用传统pip方式
 
-### 本地开发
-
-1. 进入后端目录
+1. 创建虚拟环境
 ```bash
-cd backend
+python -m venv venv
+source venv/bin/activate  # Linux/macOS
+# 或 venv\Scripts\activate  # Windows
 ```
 
 2. 安装依赖
@@ -82,15 +94,52 @@ cd backend
 pip install -r requirements.txt
 ```
 
-3. 配置环境变量
+3. 启动服务器
+```bash
+python main.py
+```
+
+### 使用Docker运行
+
+1. 配置环境变量
 ```bash
 cp .env.example .env
 # 编辑 .env 文件
 ```
 
-4. 启动开发服务器
+2. 启动服务
 ```bash
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 20001
+make docker-run
+# 或
+docker compose up -d
+```
+
+## 常用命令
+
+项目提供了Makefile来简化常用操作：
+
+```bash
+# 查看所有可用命令
+make help
+
+# 安装依赖
+make install
+
+# 开发模式启动（带热重载）
+make dev
+
+# 运行测试
+make test
+
+# 清理缓存文件
+make clean
+
+# 生产模式启动
+make run
+
+# Docker相关
+make docker-build
+make docker-run
 ```
 
 ## API文档

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-pro"
 
     # API配置
-    api_prefix: str = "/api"
+    api_prefix: str = "/api/v1"
     cors_origins: List[str] = ["*"]
 
     # 安全配置

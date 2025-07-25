@@ -4,6 +4,9 @@ import json
 import re
 from app.config import settings
 from app.models import StoryStyle
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 class AIService:
     def __init__(self):
@@ -72,10 +75,11 @@ class AIService:
     
     async def generate_worldview(self, story_title: str, story_style: StoryStyle, story_theme: str = None) -> Dict[str, Any]:
         """生成世界观框架"""
-        print(f"生成世界观 - 标题: {story_title}, 风格: {story_style.value}")
-        
+        logger.info(f"开始生成世界观 - 标题: {story_title}, 风格: {story_style.value}")
+
         # 检查Gemini API配置
         if not self.model:
+            logger.error("Gemini API未配置或配置错误")
             raise Exception("Gemini API未配置或配置错误，无法生成世界观")
         
         try:
@@ -185,78 +189,17 @@ class AIService:
             }
             
         except Exception as e:
-            print(f"AI生成世界观失败: {e}")
+            logger.error(f"AI生成世界观失败: {e}")
             raise Exception(f"Gemini API调用失败: {str(e)}")
     
-    async def generate_chapter(self, story_data: Dict[str, Any], worldview_context: str = None, previous_choice: str = None) -> Dict[str, Any]:
-        """生成章节内容"""
-        print(f"生成章节 - 故事ID: {story_data.get('title', 'Unknown')}, 章节: {story_data.get('current_chapter_number', 1)}")
-        
-        # 检查Gemini API配置
-        if not self.model:
-            raise Exception("Gemini API未配置或配置错误，无法生成内容")
-        
-        try:
-            style = StoryStyle(story_data['style'])
-            style_prompt = self._get_style_prompt(style)
-            context = self._build_context(story_data, worldview_context, previous_choice)
-            
-            prompt = f"""{style_prompt}
 
-{context}
-
-请基于以上信息，创作下一章节的内容。要求：
-1. 章节内容要连贯自然，与之前的情节呼应
-2. 如果有用户选择，要体现选择的影响
-3. 在章节结尾设置适当的悬念
-4. 返回格式为JSON，包含title（章节标题）和content（章节内容）
-
-示例格式：
-{{
-    "title": "章节标题",
-    "content": "章节内容..."
-}}"""
-            
-            response = await self.model.generate_content_async(prompt)
-            
-            # 解析AI响应 - 使用正确的访问方式
-            if response.candidates and len(response.candidates) > 0:
-                candidate = response.candidates[0]
-                if candidate.content and candidate.content.parts:
-                    content = "".join([part.text for part in candidate.content.parts if hasattr(part, 'text')])
-                else:
-                    content = ""
-            else:
-                content = ""
-            
-            # 尝试提取JSON
-            json_match = re.search(r'\{[^{}]*"title"[^{}]*"content"[^{}]*\}', content, re.DOTALL)
-            if json_match:
-                try:
-                    result = json.loads(json_match.group())
-                    return result
-                except json.JSONDecodeError:
-                    pass
-            
-            # 如果无法解析JSON，手动构建结果
-            lines = content.split('\n')
-            title = f"第{story_data.get('current_chapter_number', 1)}章"
-            
-            return {
-                "title": title,
-                "content": content.strip()
-            }
-            
-        except Exception as e:
-            print(f"AI生成章节失败: {e}")
-            raise Exception(f"Gemini API调用失败: {str(e)}")
-    
     async def generate_chapter_stream(self, story_data: Dict[str, Any], worldview_context: str = None, previous_choice: str = None):
         """流式生成章节内容"""
-        print(f"流式生成章节 - 故事ID: {story_data.get('title', 'Unknown')}, 章节: {story_data.get('current_chapter_number', 1)}")
-        
+        logger.info(f"开始流式生成章节 - 故事: {story_data.get('title', 'Unknown')}, 章节: {story_data.get('current_chapter_number', 1)}")
+
         # 检查Gemini API配置
         if not self.model:
+            logger.error("Gemini API未配置或配置错误")
             raise Exception("Gemini API未配置或配置错误，无法生成内容")
         
         try:
@@ -311,7 +254,7 @@ class AIService:
             }
             
         except Exception as e:
-            print(f"AI流式生成章节失败: {e}")
+            logger.error(f"AI流式生成章节失败: {e}")
             yield {
                 "type": "error",
                 "message": f"Gemini API调用失败: {str(e)}"
@@ -319,10 +262,11 @@ class AIService:
     
     async def generate_choices(self, chapter_content: str, story_style: StoryStyle) -> List[str]:
         """生成选择选项"""
-        print(f"生成选择 - 风格: {story_style.value}")
-        
+        logger.info(f"开始生成选择选项 - 风格: {story_style.value}")
+
         # 检查Gemini API配置
         if not self.model:
+            logger.error("Gemini API未配置或配置错误")
             raise Exception("Gemini API未配置或配置错误，无法生成选择")
         
         try:
@@ -368,7 +312,7 @@ class AIService:
             raise Exception("Gemini API返回格式解析失败")
             
         except Exception as e:
-            print(f"AI生成选择失败: {e}")
+            logger.error(f"AI生成选择失败: {e}")
             raise Exception(f"Gemini API调用失败: {str(e)}")
     
     def _generate_mock_chapter(self, story_data: Dict[str, Any], previous_choice: str = None) -> Dict[str, Any]:

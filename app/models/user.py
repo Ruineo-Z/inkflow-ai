@@ -13,6 +13,7 @@ class User(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     username = Column(String(50), nullable=False, unique=True)
     user_id = Column(String(12), nullable=False, unique=True)  # 用户登录ID
+    password_hash = Column(String(255), nullable=False)  # 密码哈希
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -20,9 +21,10 @@ class User(Base):
     # 关联关系
     stories = relationship("Story", back_populates="user", cascade="all, delete-orphan")
     
-    def __init__(self, username, **kwargs):
+    def __init__(self, username, password_hash=None, **kwargs):
         super().__init__(**kwargs)
         self.username = username
+        self.password_hash = password_hash
         if not self.user_id:
             self.user_id = self.generate_user_id()
     

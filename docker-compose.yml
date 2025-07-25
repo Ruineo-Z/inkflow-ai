@@ -17,8 +17,8 @@ services:
     networks:
       - inkflow-network
       - database-network
-    volumes:
-      - .:/app
+    # volumes:
+    #   - .:/app  # 注释掉开发时的volume挂载，使用容器内构建的代码
 
 networks:
   inkflow-network:
